@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="VFC Patching Tool" Language="1033" Version="1.0.0.0"
+           Manufacturer="YourCompany" UpgradeCode="11111111-2222-3333-4444-555555555555">
+
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevated" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+    <MediaTemplate />
+
+    <UIRef Id="WixUI_InstallDir"/>
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER"/>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="VFC Patcher">
+          <Directory Id="PAYLOADDIR" Name="payload"/>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="PAYLOADDIR">
+      <Component Id="cmpPayload" Guid="22222222-3333-4444-5555-666666666666">
+        <File Id="VERBA_PAYLOAD" Source="Files\payload\verbastorage.exe" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="MainFeature" Title="VFC Patching Tool" Level="1">
+      <ComponentRef Id="cmpPayload"/>
+    </Feature>
+
+    <Property Id="PATCHVERSION" Value="10.0.0.1452" />
+    <Property Id="TARGETEXE" Value="C:\\Program Files\\Verba\\bin\\verbastorage.exe" />
+    <Property Id="LOGDIR" Value="C:\\VFCPatcherLogs" />
+    <Property Id="SVCPATCH" Value="VerbaStorage" />
+    <Property Id="SVCSYSMON" Value="VerbaSysMon" />
+
+    <Property Id="REGBASEVER">
+      <RegistrySearch Id="RegBaseVer64" Root="HKLM" Key="SOFTWARE\Verba" Name="Version" Type="raw" Win64="yes"/>
+      <RegistrySearch Id="RegBaseVer32" Root="HKLM" Key="SOFTWARE\Verba" Name="Version" Type="raw" />
+    </Property>
+
+    <PropertyRef Id="NETFRAMEWORK45" />
+    <Condition Message="This setup requires .NET Framework 4.7.2 or higher.">
+      <![CDATA[Installed OR (NETFRAMEWORK45 >= "#461808")]]>
+    </Condition>
+
+    <Condition Message="Administrator privileges are required.">
+      <![CDATA[Privileged]]>
+    </Condition>
+
+    <Binary Id="CustomActionDll" SourceFile="Binaries\CustomAction.CA.dll" />
+
+    <CustomAction Id="CA_Precheck" BinaryKey="CustomActionDll" DllEntry="CA_Precheck" Execute="deferred" Return="check" />
+    <CustomAction Id="CA_Patch"    BinaryKey="CustomActionDll" DllEntry="CA_Patch"    Execute="deferred" Return="check" />
+    <CustomAction Id="CA_Rollback" BinaryKey="CustomActionDll" DllEntry="CA_Rollback" Execute="rollback" Return="ignore" />
+
+    <CustomAction Id="Set_Precheck_Data" Property="CA_Precheck"
+      Value="PATCHVERSION=[PATCHVERSION];TARGETEXE=[TARGETEXE];LOGDIR=[LOGDIR];SVCPATCH=[SVCPATCH];SVCSYSMON=[SVCSYSMON];REGBASEVER=[REGBASEVER]" />
+
+    <CustomAction Id="Set_Patch_Data" Property="CA_Patch"
+      Value="PATCHVERSION=[PATCHVERSION];TARGETEXE=[TARGETEXE];LOGDIR=[LOGDIR];SVCPATCH=[SVCPATCH];SVCSYSMON=[SVCSYSMON];REGBASEVER=[REGBASEVER];PAYLOAD=[#VERBA_PAYLOAD]" />
+
+    <CustomAction Id="Set_Rollback_Data" Property="CA_Rollback"
+      Value="TARGETEXE=[TARGETEXE];LOGDIR=[LOGDIR]" />
+
+    <InstallExecuteSequence>
+      <Custom Action="CA_Rollback" Before="CA_Patch">NOT Installed OR REINSTALL</Custom>
+      <Custom Action="Set_Precheck_Data" Before="CA_Precheck">NOT Installed OR REINSTALL</Custom>
+      <Custom Action="CA_Precheck" Before="InstallFiles">NOT Installed OR REINSTALL</Custom>
+      <Custom Action="Set_Patch_Data" After="InstallFiles">NOT Installed OR REINSTALL</Custom>
+      <Custom Action="CA_Patch" After="Set_Patch_Data">NOT Installed OR REINSTALL</Custom>
+      <Custom Action="Set_Rollback_Data" Before="CA_Patch">NOT Installed OR REINSTALL</Custom>
+    </InstallExecuteSequence>
+
+  </Product>
+</Wix>
